@@ -1,0 +1,12 @@
+{
+  "mode": "yukari",
+  "skip_move": false,
+  "max_loop": 0,
+  "fly_load_wait": 4.0,
+  "enter_load_wait": 3.5,
+  "yukari_elevator_wait": 2.0,
+  "restaurant_walk_right": 4.0,
+  "debug_log": false,
+  "show_settings_ui": true,
+  "settings_ui_timeout_seconds": 30
+}

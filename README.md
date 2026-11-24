@@ -1,0 +1,49 @@
+# ZA_Battle_Loop
+
+『Pokémon Legends Z-A』の周回バトルを自動で繰り返す PokeCon 用スクリプトです。ZA_Yukari_Infinity を汎用化したもので、Start を押すと出る設定画面で周回先を選べます。
+
+## 対応している周回先
+
+| mode | 周回先 | 移動 | 参考 |
+|---|---|---|---|
+| `yukari` | ユカリトーナメント∞ | ホテル シュールリッシュへ空を飛ぶ → エレベーター → ユカリの前 | https://gamewith.jp/pokemon-za/525192 |
+| `restaurant` | レストラン ローリングドリーマー（5連戦） | レストランへ空を飛ぶ → 入店 → 右へ歩いて店員に話しかける | https://gamewith.jp/pokemon-za/525002 |
+
+レストランは、クリア後に A 連打で店員への再話しかけと 30,000円の支払い確認（「はい」が初期カーソル）まで進む前提です。所持金が足りなくなると止まります。
+
+## ファイル
+
+- `ZA_Battle_Loop.py`: 本体
+- `config.json`: 設定（設定画面で「保存する」にすると上書きされます）
+
+この2つを PokeCon のコマンドディレクトリに一緒に置いてください。
+
+## 設定画面
+
+| 項目 | config.json のキー | 既定値 |
+|---|---|---|
+| 周回先 | `mode` (`yukari` / `restaurant`) | `yukari` |
+| すでにバトル相手の前にいる（移動スキップ） | `skip_move` | `false` |
+| 空を飛んだ後のロード待ち | `fly_load_wait` | 4.0 秒 |
+| 建物に入った後のロード待ち | `enter_load_wait` | 3.5 秒 |
+| エレベーター後の待ち（ユカリ用） | `yukari_elevator_wait` | 2.0 秒 |
+| 店員まで右へ歩く時間（レストラン用） | `restaurant_walk_right` | 4.0 秒 |
+| ループ回数（0 = 無限） | `max_loop` | 0 |
+| デバッグログ | `debug_log` | `false` |
+| Start で設定画面を出す | `show_settings_ui` | `true` |
+| 自動開始までの秒数（0 = しない） | `settings_ui_timeout_seconds` | 30 |
+
+- ロード時間は端末（Switch / Switch 2 など）で違います。移動がずれる場合は待ち時間を長めにしてください。
+- 実行リストから呼ばれたときや設定画面を出せない環境では、画面を出さずに config.json の値で開始します。
+
+## 周回先を足すには
+
+1. `MODES` に `'キー': {'label': ..., 'fly': 'メソッド名', 'enter': 'メソッド名'}` を1行足す
+2. 空を飛ぶメソッド（`self.fly_to('名前', ↑の回数)` を呼ぶだけ）と、相手の前まで行くメソッドを書く
+
+## 変更点（ZA_Yukari_Infinity から）
+
+- 2つの飛行メソッドを `fly_to()` にまとめた（↑の回数だけが違うため）
+- `move_to_Restaurant` の `Direction.Right` を `Direction.RIGHT` に修正
+- ロード待ちと歩く時間を設定できるようにした
+- バトルループ（ZL ホールド＋A/X）は元のスクリプトと同じ
