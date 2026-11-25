@@ -7,6 +7,7 @@ ZA_Battle_Loop
 モード
   - yukari     : ユカリトーナメント∞（ホテル シュールリッシュ）
   - restaurant : レストラン ローリングドリーマー（5連戦。2回目以降は 30,000円で再挑戦）
+  - pukurin    : くっさいプクリン（ワイルドゾーン10横の道・バン。移動なし、会話とバトルだけ）
 
 Start を押すと設定画面が出る（モード・移動スキップ・待ち時間など）。
 設定は config.json に保存でき、実行リストから呼ばれたときは config.json の値で動く。
@@ -18,7 +19,7 @@ import os
 from Commands.PythonCommandBase import ImageProcPythonCommand
 from Commands.Keys import KeyPress, Hat, Button, Direction
 
-VERSION = '1.1.0'
+VERSION = '1.2.0'
 
 SCRIPT_DIR_ABS = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = 'config.json'
@@ -26,9 +27,10 @@ CONFIG_FILE_ABS = os.path.join(SCRIPT_DIR_ABS, CONFIG_FILE)
 
 # =============================================================================
 # モード定義
-#   fly   : 空を飛ぶメソッド名
-#   enter : 到着後、バトル相手の前まで行くメソッド名
+#   fly   : 空を飛ぶメソッド名（None = 移動しない）
+#   enter : 到着後、バトル相手の前まで行くメソッド名（None = 移動しない）
 # 新しい周回先を足すときは、ここに 1 行足して、移動メソッドを 2 つ書く
+# 移動しない周回先（相手の前で開始する）は fly / enter を None にするだけでよい
 # =============================================================================
 MODES = {
     'yukari': {
@@ -41,11 +43,22 @@ MODES = {
         'fly': 'move_to_RolingzDreamer',
         'enter': 'move_to_Restaurant',
     },
+    'pukurin': {
+        'label': 'くっさいプクリン（ワイルドゾーン10横の道・バン）',
+        'fly': None,
+        'enter': None,
+    },
 }
+
+
+def mode_has_move(mode_key):
+    """その周回先に移動処理があるか（fly / enter のどちらかがあれば True）"""
+    info = MODES[mode_key]
+    return bool(info.get('fly') or info.get('enter'))
 
 # 待ち時間（秒）。ロード時間は端末で違うので、設定画面か config.json で調整する
 TIMING_KEYS = [
-    # (キー, 画面の表示名, 説明, 使うモード（None = 共通）)
+    # (キー, 画面の表示名, 説明, 使うモード（None = 移動するモード共通）)
     ('fly_load_wait', '空を飛んだ後のロード待ち', '秒（到着画面が出るまで）', None),
     ('enter_load_wait', '建物に入った後のロード待ち', '秒（ドアを開けてから）', None),
     ('yukari_elevator_wait', 'エレベーター後の待ち', '秒（ユカリ用）', 'yukari'),
@@ -146,7 +159,7 @@ def _is_main_thread():
 class ZA_Battle_Loop(ImageProcPythonCommand):
     # PCME 0.2.0 以降は NAME を構文解析だけで読むので、必ず文字列リテラルで書く。
     # バージョンを上げるときは VERSION とこの NAME の両方を書き換えること。
-    NAME = "ZA 周回バトル v1.1.0"
+    NAME = "ZA 周回バトル v1.2.0"
 
     def __init__(self, cam, gui=None):
         # PCME 0.2.0: 第2引数にプレビュー（CaptureArea）が渡される。設定画面の親ウィンドウに使う
@@ -259,11 +272,15 @@ class ZA_Battle_Loop(ImageProcPythonCommand):
 
         print(f"=== ZA 周回バトル v{VERSION}: {mode['label']} ===")
         print(f"技ボタン: {cfg['move_button']}")
-        if cfg['skip_move']:
+        if not mode_has_move(cfg['mode']):
+            print("移動: なし（バトル相手の前で開始してください）")
+        elif cfg['skip_move']:
             print("移動: スキップ（すでにバトル相手の前にいる設定）")
         else:
-            getattr(self, mode['fly'])()
-            getattr(self, mode['enter'])()
+            if mode.get('fly'):
+                getattr(self, mode['fly'])()
+            if mode.get('enter'):
+                getattr(self, mode['enter'])()
 
         max_loop = cfg['max_loop']
         print("--- ループ開始 ({}。停止するには Stop ボタン) ---".format(
@@ -408,8 +425,11 @@ class _SettingsDialog:
         for key, info in MODES.items():
             ttk.Radiobutton(box, text=info['label'], value=key, variable=self.v_mode,
                             command=self._update_mode).pack(anchor='w')
-        ttk.Checkbutton(box, text='すでにバトル相手の前にいる（移動をスキップしてすぐループ）',
-                        variable=self.v_skip, command=self._update_mode).pack(anchor='w', pady=(6, 0))
+        self.skip_check = ttk.Checkbutton(box, text='すでにバトル相手の前にいる（移動をスキップしてすぐループ）',
+                                          variable=self.v_skip, command=self._update_mode)
+        self.skip_check.pack(anchor='w', pady=(6, 0))
+        self.no_move_label = ttk.Label(box, text='', foreground=self.muted)
+        self.no_move_label.pack(anchor='w')
 
         # --- 待ち時間
         tbox = ttk.LabelFrame(body, text='待ち時間（ロードが遅い端末は長めに）', padding=8)
@@ -471,9 +491,17 @@ class _SettingsDialog:
     def _update_mode(self):
         """選んだモードで使わない待ち時間・移動をスキップするときの待ち時間を灰色にする"""
         mode = self.v_mode.get()
+        has_move = mode_has_move(mode)
         skip = bool(self.v_skip.get())
+        # 移動しない周回先では「移動スキップ」のチェックも意味がないので灰色にする
+        try:
+            self.skip_check.state(['!disabled' if has_move else 'disabled'])
+        except Exception:
+            pass
+        self.no_move_label.configure(
+            text='' if has_move else 'この周回先は移動しません。バトル相手（話しかける相手）の前で Start してください。')
         for key, _, _, only in TIMING_KEYS:
-            enabled = not skip and (only is None or only == mode)
+            enabled = has_move and not skip and (only is None or only == mode)
             for w in self.timing_rows[key].winfo_children():
                 try:
                     w.state(['!disabled' if enabled else 'disabled'])
