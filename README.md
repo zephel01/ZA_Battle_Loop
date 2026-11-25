@@ -28,6 +28,7 @@
 | 建物に入った後のロード待ち | `enter_load_wait` | 3.5 秒 |
 | エレベーター後の待ち（ユカリ用） | `yukari_elevator_wait` | 2.0 秒 |
 | 店員まで右へ歩く時間（レストラン用） | `restaurant_walk_right` | 4.0 秒 |
+| 技ボタン（A の後に押す。A / X） | `move_button` | `X` |
 | ループ回数（0 = 無限） | `max_loop` | 0 |
 | デバッグログ | `debug_log` | `false` |
 | Start で設定画面を出す | `show_settings_ui` | `true` |
@@ -47,3 +48,7 @@
 - `move_to_Restaurant` の `Direction.Right` を `Direction.RIGHT` に修正
 - ロード待ちと歩く時間を設定できるようにした
 - バトルループ（ZL ホールド＋A/X）は元のスクリプトと同じ
+
+## v1.1.0
+
+- バトルループの技ボタンを設定で A / X から選べるようにした（既定は X。A を選ぶと A を 2 回押す）

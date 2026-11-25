@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# OS / エディタ
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# 作業用の出力（成果物はリポジトリ本体に反映してからコミットする）
+_OUTPUTS/
+
+# 設定画面で config.json を保存するときの一時ファイル
+*.tmp
+
+# test_move_button.py の比較用に一時的に置くファイル
+test/v100.py
+test/v110.py
