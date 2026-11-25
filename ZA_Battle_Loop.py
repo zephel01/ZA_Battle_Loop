@@ -18,7 +18,7 @@ import os
 from Commands.PythonCommandBase import ImageProcPythonCommand
 from Commands.Keys import KeyPress, Hat, Button, Direction
 
-VERSION = '1.0.0'
+VERSION = '1.1.0'
 
 SCRIPT_DIR_ABS = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = 'config.json'
@@ -52,8 +52,12 @@ TIMING_KEYS = [
     ('restaurant_walk_right', '店員まで右へ歩く時間', '秒（レストラン用）', 'restaurant'),
 ]
 
+# 技ボタン（バトルループで A の後に押すボタン）
+MOVE_BUTTONS = ['A', 'X']
+
 DEFAULT_CONFIG = {
     'mode': 'yukari',
+    'move_button': 'X',              # 技ボタン（MOVE_BUTTONS のどれか）
     'skip_move': False,              # True: すでにバトル相手の前にいる（移動しない）
     'max_loop': 0,                   # バトルループの回数（0 = 止めるまで無限）
     'fly_load_wait': 4.0,
@@ -82,6 +86,11 @@ def normalize_config(cfg):
         print(f"[Warning] mode '{out.get('mode')}' は使えません。'{DEFAULT_CONFIG['mode']}' で動きます。")
         mode = DEFAULT_CONFIG['mode']
     out['mode'] = mode
+    btn = str(out.get('move_button', '')).strip().upper()
+    if btn not in MOVE_BUTTONS:
+        print(f"[Warning] move_button '{out.get('move_button')}' は使えません。'{DEFAULT_CONFIG['move_button']}' で動きます。")
+        btn = DEFAULT_CONFIG['move_button']
+    out['move_button'] = btn
     for key in ('skip_move', 'debug_log', 'show_settings_ui'):
         out[key] = _is_true(out[key])
     for key in ('max_loop', 'settings_ui_timeout_seconds'):
@@ -137,7 +146,7 @@ def _is_main_thread():
 class ZA_Battle_Loop(ImageProcPythonCommand):
     # PCME 0.2.0 以降は NAME を構文解析だけで読むので、必ず文字列リテラルで書く。
     # バージョンを上げるときは VERSION とこの NAME の両方を書き換えること。
-    NAME = "ZA 周回バトル v1.0.0"
+    NAME = "ZA 周回バトル v1.1.0"
 
     def __init__(self, cam, gui=None):
         # PCME 0.2.0: 第2引数にプレビュー（CaptureArea）が渡される。設定画面の親ウィンドウに使う
@@ -223,15 +232,16 @@ class ZA_Battle_Loop(ImageProcPythonCommand):
     # バトル
     # ===================================================================
     def battle_step(self):
-        """ZL ホールド中に A / X を押す（会話送り・再挑戦の確認・技選択を兼ねる）"""
+        """ZL ホールド中に A → 技ボタンを押す（会話送り・再挑戦の確認・技選択を兼ねる）"""
+        move_button = getattr(Button, self.cfg['move_button'])
         self.hold(Button.ZL)
 
         # 会話送り or 技選択(A)
         self.press(Button.A, duration=0.1)
         self.wait(0.2)
 
-        # 技選択(X)
-        self.press(Button.X, duration=0.1)
+        # 技選択（設定の技ボタン。A を選んだときは A を 2 回押す）
+        self.press(move_button, duration=0.1)
         self.wait(0.1)
 
         self.holdEnd(Button.ZL)
@@ -248,6 +258,7 @@ class ZA_Battle_Loop(ImageProcPythonCommand):
         mode = MODES[cfg['mode']]
 
         print(f"=== ZA 周回バトル v{VERSION}: {mode['label']} ===")
+        print(f"技ボタン: {cfg['move_button']}")
         if cfg['skip_move']:
             print("移動: スキップ（すでにバトル相手の前にいる設定）")
         else:
@@ -384,6 +395,7 @@ class _SettingsDialog:
         self.v_mode = tk.StringVar(value=c['mode'])
         self.v_skip = tk.BooleanVar(value=c['skip_move'])
         self.v_max_loop = tk.StringVar(value=str(c['max_loop']))
+        self.v_move_button = tk.StringVar(value=c['move_button'])
         self.v_timing = {k: tk.StringVar(value=str(c[k])) for k, _, _, _ in TIMING_KEYS}
         self.v_debug = tk.BooleanVar(value=c['debug_log'])
         self.v_show_ui = tk.BooleanVar(value=c['show_settings_ui'])
@@ -409,6 +421,9 @@ class _SettingsDialog:
         # --- ループ
         lbox = ttk.LabelFrame(body, text='ループ', padding=8)
         lbox.pack(fill='x', pady=(8, 0))
+        f = self._row(lbox, '技ボタン（A の後に押す）')
+        for b in MOVE_BUTTONS:
+            ttk.Radiobutton(f, text=b, value=b, variable=self.v_move_button).pack(side='left', padx=(0, 12))
         self._spin(lbox, 'ループ回数', self.v_max_loop, 0, 9999999, 1, '回（0 = Stop を押すまで無限）')
         ttk.Checkbutton(lbox, text='デバッグログを出す（100 ループごとに回数を表示）',
                         variable=self.v_debug).pack(anchor='w')
@@ -516,6 +531,7 @@ class _SettingsDialog:
         cfg = dict(self.cfg)
         cfg['mode'] = self.v_mode.get()
         cfg['skip_move'] = bool(self.v_skip.get())
+        cfg['move_button'] = self.v_move_button.get()
         cfg['max_loop'] = self._num(self.v_max_loop, 'ループ回数', int, 0, 9999999)
         for key, label, _, _ in TIMING_KEYS:
             cfg[key] = round(self._num(self.v_timing[key], label, float, 0.0, 60.0), 2)

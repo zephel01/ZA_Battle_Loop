@@ -1,5 +1,6 @@
 {
   "mode": "yukari",
+  "move_button": "X",
   "skip_move": false,
   "max_loop": 0,
   "fly_load_wait": 4.0,
