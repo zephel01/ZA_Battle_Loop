@@ -19,3 +19,4 @@ _OUTPUTS/
 # test_move_button.py の比較用に一時的に置くファイル
 test/v100.py
 test/v110.py
+test/v120.py
